@@ -120,12 +120,40 @@ def run_simulation(input_file, args):
     best_efficiency = float('inf')
     for a_id, pkgs in assignments.items():
         packages_delivered = len(pkgs)
-        total_distance = sum(calculate_distance(agents[a_id], warehouse[pkg['warehouse']]) for pkg in pkgs)
+        total_distance = 0
+        
+        # Start at agent's initial location
+        current_loc = agents[a_id]
+        
+        for pkg in pkgs:
+            w_loc = warehouse[pkg['warehouse']]
+            dest_loc = pkg['destination']
+            
+            # Travel from current location to the warehouse
+            dist_to_w = calculate_distance(current_loc, w_loc)
+            # Travel from warehouse to package destination
+            dist_to_dest = calculate_distance(w_loc, dest_loc)
+            
+            total_distance += (dist_to_w + dist_to_dest)
+            
+            # Agent finishes this delivery at the destination
+            current_loc = dest_loc
+            
         efficiency = total_distance / packages_delivered if packages_delivered > 0 else float('inf')
+        
+        # Use 0 instead of Infinity for standard JSON compliance
+        report_efficiency = round(efficiency, 2) if packages_delivered > 0 else 0
+        
+        report[a_id] = {
+            "packages_delivered": packages_delivered,
+            "total_distance": round(total_distance, 2),
+            "efficiency": report_efficiency
+        }
         
         if packages_delivered > 0 and efficiency < best_efficiency:
             best_efficiency = efficiency
             best_agent = a_id
+            
     report["best_agent"] = best_agent
 
     #load
