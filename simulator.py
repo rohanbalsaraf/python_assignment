@@ -89,7 +89,7 @@ def export_to_performer(report, best_agent):
         pass
 
 #simulation function
-def run_simulation(input_file, args):
+def run_simulation(input_file, args, is_batch=False):
     """Run simulation for a single input file"""
     #extract
     warehouse,agents,packages = parse_json(input_file)
@@ -179,14 +179,17 @@ def run_simulation(input_file, args):
     report["best_agent"] = best_agent
 
     #load
-    with open('report.json','w') as f:
-        json.dump(report,f,indent=2)
-
-    print(f"Simulation Complete! Report saved to report.json")
+    if not is_batch:
+        with open('report.json','w') as f:
+            json.dump(report,f,indent=2)
+        print(f"Simulation Complete! Report saved to report.json")
+    else:
+        print(f"Simulation Complete!")
     print("Final Report:")
     print(json.dumps(report,indent=2))
 
-    export_to_performer(report,best_agent)
+    if not is_batch:
+        export_to_performer(report,best_agent)
     return report, best_agent
 
 
@@ -219,7 +222,7 @@ def main():
             print(f"Processing: {json_file.name}")
             print(f"{'='*60}")
             try:
-                report, best_agent = run_simulation(str(json_file), args)
+                report, best_agent = run_simulation(str(json_file), args, is_batch=True)
                 results.append({
                     'file': json_file.name,
                     'best_agent': best_agent
