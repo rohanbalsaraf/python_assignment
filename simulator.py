@@ -6,6 +6,8 @@ import sys
 import random
 import time
 import argparse
+import os
+from pathlib import Path
 
 #distance calculate
 """Calculate Euclidean distance between two points [x, y]"""
@@ -86,24 +88,12 @@ def export_to_performer(report, best_agent):
     except Exception:
         pass
 
-#simulation_loop
-
-
-
-#main
-def main():
-    #cli setup
-    parser = argparse.ArgumentParser(description="delivery system simulator")
-    parser.add_argument("input_file",help="Path to the JSON input file")
-    parser.add_argument("--delays",action="store_true",help="Enable random delays in delivery times")
-    parser.add_argument("--ascii",action="store_true",help="Output results in ASCII format instead of CSV")
-    parser.add_argument("--midday-agent",action="store_true",help="Simulate an agent that starts work at midday")
-
-    args = parser.parse_args()
-
+#simulation function
+def run_simulation(input_file, args):
+    """Run simulation for a single input file"""
     #extract
-    warehouse,agents,packages = parse_json(args.input_file)
-    print(f"Loaded {len(agents)} agents, {len(packages)} packages, and {len(warehouse)} warehouses from {args.input_file}")
+    warehouse,agents,packages = parse_json(input_file)
+    print(f"Loaded {len(agents)} agents, {len(packages)} packages, and {len(warehouse)} warehouses from {input_file}")
 
     #transform
     if args.midday_agent:
@@ -142,11 +132,82 @@ def main():
     with open('report.json','w') as f:
         json.dump(report,f,indent=2)
 
-    print(f"\nSimulation Complete! Report saved to report.json")
+    print(f"Simulation Complete! Report saved to report.json")
     print("Final Report:")
     print(json.dumps(report,indent=2))
 
     export_to_performer(report,best_agent)
+    return report, best_agent
+
+
+
+#main
+def main():
+    #cli setup
+    parser = argparse.ArgumentParser(description="delivery system simulator")
+    parser.add_argument("input_file",help="Path to the JSON input file or folder containing JSON files")
+    parser.add_argument("--delays",action="store_true",help="Enable random delays in delivery times")
+    parser.add_argument("--ascii",action="store_true",help="Output results in ASCII format instead of CSV")
+    parser.add_argument("--midday-agent",action="store_true",help="Simulate an agent that starts work at midday")
+
+    args = parser.parse_args()
+
+    input_path = Path(args.input_file)
+    
+    # Check if input is a directory
+    if input_path.is_dir():
+        print(f"\nRunning all JSON files in directory: {args.input_file}\n")
+        json_files = sorted(input_path.glob('*.json'))
+        
+        if not json_files:
+            print(f"Error: No JSON files found in {args.input_file}")
+            sys.exit(1)
+        
+        results = []
+        for json_file in json_files:
+            print(f"\n{'='*60}")
+            print(f"Processing: {json_file.name}")
+            print(f"{'='*60}")
+            try:
+                report, best_agent = run_simulation(str(json_file), args)
+                results.append({
+                    'file': json_file.name,
+                    'best_agent': best_agent
+                })
+            except Exception as e:
+                print(f"Error processing {json_file.name}: {e}")
+                results.append({
+                    'file': json_file.name,
+                    'best_agent': 'ERROR'
+                })
+        
+        # Print summary
+        print(f"\n{'='*60}")
+        print("SUMMARY OF ALL TEST CASES")
+        print(f"{'='*60}")
+        for i, result in enumerate(results, 1):
+            print(f"Test Case {i:2d} ({result['file']:20s}): Best Agent = {result['best_agent']}")
+        
+        # Save batch results to JSON
+        batch_report = {
+            "total_test_cases": len(results),
+            "test_results": results
+        }
+        with open('batch_report.json', 'w') as f:
+            json.dump(batch_report, f, indent=2)
+        print(f"\n✓ Batch report saved to: batch_report.json")
+        
+        # Save batch results to CSV
+        with open('batch_summary.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Test Case', 'Best Agent'])
+            for i, result in enumerate(results, 1):
+                writer.writerow([result['file'], result['best_agent']])
+        print(f"✓ Batch summary saved to: batch_summary.csv")
+        
+    else:
+        # Single file mode
+        run_simulation(args.input_file, args)
 
 
 if __name__ == '__main__':
