@@ -121,9 +121,14 @@ def run_simulation(input_file, args):
     for a_id, pkgs in assignments.items():
         packages_delivered = len(pkgs)
         total_distance = 0
+        total_time = 0
         
         # Start at agent's initial location
         current_loc = agents[a_id]
+        
+        if args.ascii and packages_delivered > 0:
+            print(f"\n--- Route Visualization for {a_id} ---")
+            print(f"Start: {current_loc}")
         
         for pkg in pkgs:
             w_loc = warehouse[pkg['warehouse']]
@@ -134,7 +139,23 @@ def run_simulation(input_file, args):
             # Travel from warehouse to package destination
             dist_to_dest = calculate_distance(w_loc, dest_loc)
             
-            total_distance += (dist_to_w + dist_to_dest)
+            trip_dist = dist_to_w + dist_to_dest
+            total_distance += trip_dist
+            
+            # Time is equivalent to distance, plus any delays
+            trip_time = trip_dist
+            delay = 0
+            if args.delays:
+                delay = round(random.uniform(1.0, 10.0), 2)
+                trip_time += delay
+            
+            total_time += trip_time
+            
+            if args.ascii:
+                print(f"  ──> {w_loc} (Pickup W: {pkg['warehouse']}) [dist: {dist_to_w:.2f}]")
+                if args.delays:
+                    print(f"      ... random delay of {delay} added ...")
+                print(f"  ──> {dest_loc} (Deliver Pkg: {pkg['id']}) [dist: {dist_to_dest:.2f}]")
             
             # Agent finishes this delivery at the destination
             current_loc = dest_loc
@@ -147,6 +168,7 @@ def run_simulation(input_file, args):
         report[a_id] = {
             "packages_delivered": packages_delivered,
             "total_distance": round(total_distance, 2),
+            "total_time": round(total_time, 2),
             "efficiency": report_efficiency
         }
         
